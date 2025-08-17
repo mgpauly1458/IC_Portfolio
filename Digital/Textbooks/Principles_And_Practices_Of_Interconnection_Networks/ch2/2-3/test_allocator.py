@@ -79,9 +79,6 @@ class Packet:
         self.destination = random.randint(0, 63)  # Destination address is 6 bits
         self.create_phits()
 
-        print(f"Created packet with destination {bin(self.destination)} and total size {self.total_size_bits} bits")
-
-
 
     def create_header_phit(self):
         # give header phit type 11, destination address, and 10 unused bits
@@ -117,8 +114,9 @@ class Packet:
         return None
 
 class Allocator_Handler:
-    def __init__(self):
-        pass
+    def __init__(self, log=True):
+        self.number_of_dropped_packets = 0
+        self.log = log
 
     def initialize_allocator(self, dut):
         # Initialize the allocator
@@ -136,21 +134,26 @@ class Allocator_Handler:
         dut.r2.value = phit2.allocator_input()
         dut.r3.value = phit3.allocator_input()
 
-    def log_interaction(self, dut, phit: Phit):
+    def process_interaction(self, dut, phit: Phit):
         if phit.type != HEADER_PHIT_TYPE or (phit.get_address() >> 4) != dut.thisPort.value:
             return
         
-        dut._log.info("Allocator interaction with phit: %s", phit)
-        dut._log.info("Allocator input value: %s", bin(phit.allocator_input()))
+        if self.log:
+            dut._log.info("Allocator interaction with phit: %s", phit)
+            dut._log.info("Allocator input value: %s", bin(phit.allocator_input()))
 
         # log output
-        dut._log.info("select: %s", bin(dut.select.value))
-        dut._log.info("shift: %s", bin(dut.shift.value))
-        dut._log.info("hold: %s", bin(dut.hold.value))
+        if self.log:
+            dut._log.info("select: %s", bin(dut.select.value))
+            dut._log.info("shift: %s", bin(dut.shift.value))
+            dut._log.info("hold: %s", bin(dut.hold.value))
 
         if dut.hold.value == 0b1:
             # Header packet showed up and hold is set, so packet is dropped
-            self.packet_dropped_log(dut)
+            self.number_of_dropped_packets += 1
+            if self.log:
+                self.packet_dropped_log(dut)
+
 
     def packet_dropped_log(self, dut):
         dut._log.info("\n############################\n")
@@ -162,13 +165,14 @@ class Traffic_Generator:
     # at random time intervals, a packet will be created and
     # the phits will be popped and sent to the allocator input.
 
-    def __init__(self, dut, number_of_cycles=100, packet_generation_frequency=0.1):
+    def __init__(self, dut, number_of_cycles=100, packet_generation_frequency=0.1, log=True):
         self.dut = dut
-        self.allocator_handler = Allocator_Handler()
+        self.allocator_handler = Allocator_Handler(log=log)
         self.allocator_handler.initialize_allocator(dut)
         self.packet_generation_frequency = packet_generation_frequency
         self.number_of_cycles = number_of_cycles
         self.debug_cycle_counter = 0
+        self.log = log
 
         self.packet0 = None
         self.packet1 = None
@@ -177,21 +181,27 @@ class Traffic_Generator:
 
     def _packet_generated_log(self, packet_number):
         print(f"\nPacket {packet_number} generated. Current cycle: {self.debug_cycle_counter}")
+        print(f"Packet destination: {bin(self.destination)} and total number of payload phits: {self.number_of_data_phits}")
+
     def generate_traffic(self):
         # Randomly decide if a packet should be created or not.
         # If a packet is already being processed, do not create a new one.
         if not self.packet0 and random.random() < self.packet_generation_frequency:
-            self._packet_generated_log(0)
             self.packet0 = Packet()
+            if self.log:
+                self._packet_generated_log(0)
         if not self.packet1 and random.random() < self.packet_generation_frequency:
-            self._packet_generated_log(1)
             self.packet1 = Packet()
+            if self.log:
+                self._packet_generated_log(1)
         if not self.packet2 and random.random() < self.packet_generation_frequency:
-            self._packet_generated_log(2)
             self.packet2 = Packet()
+            if self.log:
+                self._packet_generated_log(2)
         if not self.packet3 and random.random() < self.packet_generation_frequency:
-            self._packet_generated_log(3)
             self.packet3 = Packet()
+            if self.log:
+                self._packet_generated_log(3)
 
     async def process_traffic(self):
         for _ in range(self.number_of_cycles):
@@ -228,10 +238,10 @@ class Traffic_Generator:
             await RisingEdge(self.dut.clk)
 
             # Only log if packet is for this port
-            self.allocator_handler.log_interaction(self.dut, phit0)
-            self.allocator_handler.log_interaction(self.dut, phit1)
-            self.allocator_handler.log_interaction(self.dut, phit2)
-            self.allocator_handler.log_interaction(self.dut, phit3)
+            self.allocator_handler.process_interaction(self.dut, phit0)
+            self.allocator_handler.process_interaction(self.dut, phit1)
+            self.allocator_handler.process_interaction(self.dut, phit2)
+            self.allocator_handler.process_interaction(self.dut, phit3)
 
             self.debug_cycle_counter += 1
 
@@ -242,17 +252,28 @@ async def test_random_traffic(dut):
     clock = Clock(dut.clk, 10, units="ns")
     cocotb.start_soon(clock.start())
 
-    allocator_handler = Allocator_Handler()
-    allocator_handler.initialize_allocator(dut)
-
     await Timer(5, units="ns")  # Wait for clock to start
     await FallingEdge(dut.clk)  # Wait for a falling edge to start
 
     dut._log.info("\n\nStarting random traffic test\n")
 
-    traffic_generator = Traffic_Generator(
-        dut,
-        number_of_cycles=100,
-        packet_generation_frequency=0.5
-    )
-    await traffic_generator.process_traffic()
+    total_packets_dropped = 0
+    total_iterations = 10
+    number_of_cycles = 100000  # Number of cycles for each iteration
+    packet_generation_frequency = 0.1  # Frequency of packet generation
+
+    for iteration in range(total_iterations):
+        traffic_generator = Traffic_Generator(
+            dut,
+            number_of_cycles=number_of_cycles,
+            packet_generation_frequency=packet_generation_frequency,
+            log=False,
+        )
+        await traffic_generator.process_traffic()
+
+        total_packets_dropped += traffic_generator.allocator_handler.number_of_dropped_packets
+
+        dut._log.info(f"\n\nRandom traffic test completed for iteration {iteration}\n")
+        dut._log.info("Number of dropped packets: %d", traffic_generator.allocator_handler.number_of_dropped_packets)
+
+    dut._log.info(f"\n\nAverage number of dropped packets per iteration: {total_packets_dropped / total_iterations}\n")
