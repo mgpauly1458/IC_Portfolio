@@ -1,0 +1,2 @@
+Standard Deviation of Fairness Slopes: 0.0002963528302547478
+Standard Deviation of Random Slopes: 0.00044798623490757705

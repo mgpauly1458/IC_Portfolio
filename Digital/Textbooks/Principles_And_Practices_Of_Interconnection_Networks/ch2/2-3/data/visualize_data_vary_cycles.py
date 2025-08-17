@@ -69,3 +69,16 @@ plt.ylabel("Standard Deviation of Dropped Packets", fontsize=16)
 plt.grid()
 plt.savefig("standard_deviation_dropped_packets_vs_cycles.png")
 plt.show()
+
+# plot standard deviation of all port dropped packets vs normalized dropped packets
+plt.figure(figsize=(10, 6))
+standard_deviation_dropped_packets = df["Standard Deviation Dropped Packets"]
+total_packets_generated = df["Total Packets Generated"]
+normalized_standard_deviation = standard_deviation_dropped_packets / total_packets_generated
+plt.plot(df["Number of Cycles"], normalized_standard_deviation, marker='o', linestyle='-', color='purple')
+plt.title("Normalized Standard Deviation of Dropped Packets vs Number of Cycles", fontsize=20)
+plt.xlabel("Number of Cycles", fontsize=16)
+plt.ylabel("Normalized Standard Deviation of Dropped Packets", fontsize=16)
+plt.grid()
+plt.savefig("normalized_standard_deviation_dropped_packets_vs_cycles.png")
+plt.show()
