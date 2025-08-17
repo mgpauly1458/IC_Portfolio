@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 # read in random_traffic_results.csv
-df = pd.read_csv("random_traffic_results_constant_packet_gen_frequency.csv")
+df = pd.read_csv("fairness_random_traffic_results_constant_packet_gen_frequency.csv")
 
 # plot average dropped packets against total packets generated
 plt.figure(figsize=(10, 6))
@@ -56,6 +56,7 @@ plt.title("Average Dropped Packets per Port vs Number of Cycles", fontsize=20)
 plt.xlabel("Number of Cycles", fontsize=16)
 plt.ylabel("Average Dropped Packets per Port", fontsize=16)
 plt.grid()
+plt.legend()
 plt.savefig("average_dropped_packets_per_port_vs_cycles.png")
 plt.show()
 

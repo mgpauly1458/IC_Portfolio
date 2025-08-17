@@ -312,11 +312,11 @@ async def test_random_traffic(dut):
     current_number_of_cycles = start_number_of_cycles
     current_packet_generation_frequency = start_packet_generation_frequency
 
-    data_file_name = "data/random_traffic_results_constant_number_of_cycles.csv"
-    # data_file_name = "data/random_traffic_results_constant_packet_gen_frequency.csv"
+    # data_file_name = "data/fairness_random_traffic_results_constant_number_of_cycles.csv"
+    data_file_name = "data/fairness_random_traffic_results_constant_packet_gen_frequency.csv"
 
-    while current_packet_generation_frequency <= end_packet_generation_frequency:
-    # while current_number_of_cycles <= end_number_of_cycles:
+    # while current_packet_generation_frequency <= end_packet_generation_frequency:
+    while current_number_of_cycles <= end_number_of_cycles:
         total_packets_dropped = 0
         total_0_packets_dropped = 0
         total_1_packets_dropped = 0
@@ -325,10 +325,10 @@ async def test_random_traffic(dut):
         for iteration in range(total_iterations):
             traffic_generator = Traffic_Generator(
                 dut,
-                number_of_cycles=5000,
-                # number_of_cycles=current_number_of_cycles,
-                packet_generation_frequency=current_packet_generation_frequency,
-                # packet_generation_frequency=0.1,
+                # number_of_cycles=5000,
+                number_of_cycles=current_number_of_cycles,
+                # packet_generation_frequency=current_packet_generation_frequency,
+                packet_generation_frequency=1.0,
             log=False,
         )
             await traffic_generator.process_traffic()
